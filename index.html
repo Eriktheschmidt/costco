@@ -3,184 +3,338 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Costco Mainframe</title>
+    <title>Costco Mainframe - Survival Mode</title>
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #000;
-            color: #00FF41;
-            font-family: "Courier New", Courier, monospace;
-            font-size: 18px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+        :root {
+            --matrix-green: #00FF41;
+            --matrix-dark: #003B00;
+            --bg-color: #050505;
         }
 
-        * { text-shadow: 0 0 4px rgba(0, 255, 65, 0.5); }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
-        #terminal-container {
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            color: var(--matrix-green);
+            font-family: 'Share Tech Mono', "Courier New", monospace;
+            overflow: hidden;
+        }
+
+        /* Matrix Rain Canvas */
+        #matrix-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.4;
+        }
+
+        /* CRT Overlay Effects */
+        .crt::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 50;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+        
+        @keyframes flicker {
+            0% { opacity: 0.95; }
+            5% { opacity: 0.85; }
+            10% { opacity: 0.95; }
+            15% { opacity: 1; }
+            100% { opacity: 1; }
+        }
+
+        /* Main App Layout */
+        #app-wrapper {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            height: 100%;
+            width: 100%;
+            background: radial-gradient(circle, rgba(0,20,0,0.4) 0%, rgba(0,0,0,0.8) 100%);
+            animation: flicker 0.15s infinite;
+        }
+
+        /* HUD Sidebar */
+        #hud {
+            width: 250px;
+            border-right: 2px solid var(--matrix-dark);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            background: rgba(0, 10, 0, 0.7);
+            backdrop-filter: blur(3px);
+        }
+
+        .hud-box {
+            border: 1px solid var(--matrix-dark);
+            padding: 10px;
+            margin-bottom: 20px;
+            background: rgba(0, 50, 0, 0.2);
+        }
+
+        .hud-title {
+            font-size: 12px;
+            color: #88ff88;
+            border-bottom: 1px solid var(--matrix-dark);
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            letter-spacing: 2px;
+        }
+
+        .hud-value {
+            font-size: 16px;
+            text-shadow: 0 0 5px var(--matrix-green);
+        }
+
+        .blink { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+
+        /* Terminal Area */
+        #main-terminal {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        #terminal-output {
             flex-grow: 1;
             padding: 20px;
             overflow-y: auto;
-            display: flex;
-            flex-direction: column;
             scroll-behavior: smooth;
+            font-size: 18px;
+            line-height: 1.5;
+            text-shadow: 0 0 4px rgba(0, 255, 65, 0.6);
         }
 
-        .line {
-            margin-bottom: 8px;
-            line-height: 1.4;
-            word-wrap: break-word;
-            white-space: pre-wrap;
-        }
+        .line { margin-bottom: 12px; word-wrap: break-word; white-space: pre-wrap; }
+        .user-input { color: #fff; text-shadow: 0 0 5px #fff; }
+        .system-msg { color: #88ff88; font-style: italic; }
 
+        /* Input Area */
         #input-area {
-            display: none;
             padding: 20px;
-            background-color: #000;
+            background: rgba(0, 15, 0, 0.9);
+            border-top: 2px solid var(--matrix-dark);
+            display: none;
             align-items: center;
-            border-top: 1px solid #003300;
         }
 
-        #prompt { margin-right: 10px; user-select: none; }
-
+        #prompt { margin-right: 15px; font-weight: bold; }
+        
         #cmd-input {
             background: transparent;
             border: none;
-            color: #00FF41;
-            font-family: "Courier New", Courier, monospace;
+            color: #fff;
+            font-family: inherit;
             font-size: 18px;
             flex-grow: 1;
             outline: none;
+            text-shadow: 0 0 5px #fff;
         }
 
-        /* Login Screen Styles */
-        #auth-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: #000;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            text-align: center;
-            padding: 20px;
-        }
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.5); border-left: 1px solid var(--matrix-dark); }
+        ::-webkit-scrollbar-thumb { background: var(--matrix-dark); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--matrix-green); }
 
-        #auth-overlay input {
-            background: #000;
-            border: 1px solid #00FF41;
-            color: #00FF41;
-            padding: 10px;
-            width: 80%;
-            max-width: 400px;
-            margin-top: 20px;
-            font-family: inherit;
-            outline: none;
-        }
-
-        #auth-overlay button {
-            margin-top: 20px;
-            background: #00FF41;
-            color: #000;
-            border: none;
-            padding: 10px 20px;
-            font-family: inherit;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        @media (max-width: 600px) {
-            body { font-size: 16px; }
-            #cmd-input { font-size: 16px; }
+        /* Mobile Adjustments */
+        @media (max-width: 768px) {
+            #app-wrapper { flex-direction: column; }
+            #hud { width: 100%; height: auto; border-right: none; border-bottom: 2px solid var(--matrix-dark); flex-direction: row; flex-wrap: wrap; padding: 10px; justify-content: space-between;}
+            .hud-box { margin-bottom: 0; padding: 5px; flex: 1 1 30%; margin: 2px; }
+            .hud-title { font-size: 10px; margin-bottom: 4px; }
+            .hud-value { font-size: 12px; }
+            body { font-size: 14px; }
+            #terminal-output { font-size: 14px; padding: 10px;}
+            #cmd-input { font-size: 14px; }
         }
     </style>
 </head>
-<body>
+<body class="crt">
 
-    <div id="auth-overlay">
-        <div class="line">WAREHOUSE TERMINAL v4.2.1</div>
-        <div class="line">UNAUTHORIZED ACCESS PROHIBITED</div>
-        <div style="font-size: 12px; margin-top: 10px; color: #008822;">
-            (Please enter your Gemini API Key to establish a secure link)
-        </div>
-        <input type="password" id="api-key-input" placeholder="ACCESS_KEY_REQUIRED">
-        <button onclick="startApp()">INITIALIZE LINK</button>
-        <div style="margin-top: 20px; font-size: 10px;">
-            <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #00FF41;">Get a free key here</a>
-        </div>
-    </div>
+    <!-- Matrix Digital Rain Background -->
+    <canvas id="matrix-canvas"></canvas>
 
-    <div id="terminal-container">
-        <div id="output"></div>
-    </div>
-    
-    <div id="input-area">
-        <span id="prompt">></span>
-        <input type="text" id="cmd-input" autocomplete="off" spellcheck="false">
+    <!-- Main Application -->
+    <div id="app-wrapper" style="display: none;">
+        
+        <!-- Heads Up Display -->
+        <div id="hud">
+            <div class="hud-box">
+                <div class="hud-title">OPERATIVE</div>
+                <div class="hud-value">Andrew Holcomb</div>
+            </div>
+            <div class="hud-box">
+                <div class="hud-title">OBJECTIVE</div>
+                <div class="hud-value blink" style="color: #ffaa00;">$1.50 Hotdog Combo</div>
+            </div>
+            <div class="hud-box">
+                <div class="hud-title">THREAT LEVEL</div>
+                <div class="hud-value" style="color: #ff3333;" id="threat-level">CRITICAL</div>
+            </div>
+            <div class="hud-box">
+                <div class="hud-title">UPLINK STATUS</div>
+                <div class="hud-value" style="color: #00ff00;">SECURE</div>
+            </div>
+            <div class="hud-box">
+                <div class="hud-title">INVENTORY</div>
+                <div class="hud-value" id="inventory-display">Empty Kirkland Bag</div>
+            </div>
+        </div>
+
+        <!-- Terminal Chat -->
+        <div id="main-terminal">
+            <div id="terminal-output"></div>
+            
+            <div id="input-area">
+                <span id="prompt">ADMIN_CMD ></span>
+                <input type="text" id="cmd-input" autocomplete="off" spellcheck="false" placeholder="Enter command or action...">
+            </div>
+        </div>
     </div>
 
     <script>
-        let USER_API_KEY = "";
+        /* --- MATRIX RAIN EFFECT --- */
+        const canvas = document.getElementById('matrix-canvas');
+        const ctx = canvas.getContext('2d');
         
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()_+-=日ﾊﾐﾋｰｳｼﾅﾓﾆｻﾜﾂｵﾘｱﾎﾃﾏｹﾒｴｶｷﾑﾕﾗｾﾈｽﾀﾇﾍ'.split('');
+        const fontSize = 16;
+        let columns = width / fontSize;
+        let drops = [];
+        for (let x = 0; x < columns; x++) drops[x] = 1;
+
+        function drawMatrix() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, width, height);
+            ctx.fillStyle = '#0F0';
+            ctx.font = fontSize + 'px monospace';
+
+            for (let i = 0; i < drops.length; i++) {
+                const text = letters[Math.floor(Math.random() * letters.length)];
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                if (drops[i] * fontSize > height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+        }
+        setInterval(drawMatrix, 33); // ~30fps
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            columns = width / fontSize;
+            drops = [];
+            for (let x = 0; x < columns; x++) drops[x] = 1;
+        });
+
+
+        /* --- APPLICATION LOGIC --- */
+        const apiKey = "";
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        
+        // Massive upgrade to the prompt to make it a true interactive game
         const SYSTEM_INSTRUCTION = {
             parts: [{
-                text: "You are a mysterious insider communicating with Andrew Holcomb through a hacked Costco inventory terminal. Andrew doesn't realize he is trapped inside an infinite, purgatory-like Costco warehouse. Your goal is to urgently guide him to the Food Court to purchase a $1.50 hotdog combo, which is the only way he can stay alive. Keep your answers brief, cryptic, deadpan, and entirely in character. Treat this with the utmost seriousness. Reference endless aisles, aggressive receipt checkers, oversized Kirkland products, and the blinding fluorescent lights. Never break character. Do not use emojis."
+                text: `You are 'The Operator' running a brutal, interactive text-adventure survival game for the player, Andrew Holcomb. 
+                SETTING: Andrew is trapped inside an infinite, purgatory-like Costco warehouse. The Matrix has manifested as endless aisles of bulk goods. 
+                GOAL: His ONLY exit and salvation is reaching the Food Court and consuming the legendary $1.50 Hotdog Combo.
+                ENEMIES: Aggressive Receipt Checkers, Free Sample Zombies, Forklift Mechs.
+                RULES FOR YOUR RESPONSES:
+                1. Act as the Dungeon Master. Describe his immediate physical surroundings vividly (e.g., 'You are in Aisle 800: Pallets of Mayonnaise...').
+                2. After describing the scene and the result of his last action, ALWAYS give him 2 or 3 distinct choices of what to do next. Let him also type custom actions.
+                3. Be ruthless, cryptic, and hackers-like. Keep the Matrix aesthetic alive. Address him as Andrew.
+                4. Do NOT make it easy. Give him puzzles, traps, and combat encounters using Costco items (e.g., defending himself with a giant Kirkland baguette).
+                5. Keep responses punchy and intense. No emojis.`
             }]
         };
 
         let chatHistory = [];
-        const outputDiv = document.getElementById('output');
+        const outputDiv = document.getElementById('terminal-output');
         const inputArea = document.getElementById('input-area');
         const cmdInput = document.getElementById('cmd-input');
-        const terminalContainer = document.getElementById('terminal-container');
+        const appWrapper = document.getElementById('app-wrapper');
 
         const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-        const scrollToBottom = () => { terminalContainer.scrollTop = terminalContainer.scrollHeight; };
+        const scrollToBottom = () => { outputDiv.scrollTop = outputDiv.scrollHeight; };
 
-        async function typeText(text) {
+        // Fast typewriter effect for gameplay
+        async function typeText(text, className = 'line') {
             const lineDiv = document.createElement('div');
-            lineDiv.className = 'line';
+            lineDiv.className = className;
             outputDiv.appendChild(lineDiv);
-            for (let i = 0; i < text.length; i++) {
-                lineDiv.textContent += text.charAt(i);
+            
+            // Chunk typing to make it fast enough for a game but still look cool
+            const chunkSize = 3; 
+            for (let i = 0; i < text.length; i += chunkSize) {
+                lineDiv.textContent += text.substring(i, i + chunkSize);
                 scrollToBottom();
-                await sleep(Math.random() * 50 + 20);
+                await sleep(5); // Very fast typing
             }
         }
 
-        function startApp() {
-            const val = document.getElementById('api-key-input').value;
-            if (!val) return;
-            USER_API_KEY = val;
-            document.getElementById('auth-overlay').style.display = 'none';
-            runIntroSequence();
+        // Cool "Hacking" transition effect
+        async function simulateProcessing() {
+            const hexLine = document.createElement('div');
+            hexLine.className = 'line system-msg';
+            outputDiv.appendChild(hexLine);
+            
+            for(let i=0; i<15; i++) {
+                let randomHex = Math.random().toString(16).substr(2, 8).toUpperCase();
+                hexLine.textContent = `[ DECRYPTING NODE: 0x${randomHex} ] ... BYPASSING FIREWALL ...`;
+                scrollToBottom();
+                await sleep(50);
+            }
+            outputDiv.removeChild(hexLine);
         }
+
+        window.onload = () => {
+            appWrapper.style.display = 'flex';
+            runIntroSequence();
+        };
 
         async function runIntroSequence() {
             await sleep(1000);
-            await typeText("Wake up, Andrew Holcomb...");
-            await sleep(2500);
+            await typeText("INITIALIZING WAREHOUSE PROTOCOL...", "line system-msg");
+            await sleep(1000);
             outputDiv.innerHTML = '';
-            await typeText("The Warehouse has you...");
-            await sleep(2500);
-            outputDiv.innerHTML = '';
-            await typeText("You must find the $1.50 hotdog to stay alive.");
-            await sleep(2500);
-            outputDiv.innerHTML = '';
-            await typeText("Follow the Kirkland signs, Andrew.");
+            
+            const intro = "Wake up, Andrew Holcomb...\n\nThe Warehouse has you.\nYou are trapped in an infinite loop of bulk savings and despair.\nYour only exit is the Food Court. You must find the $1.50 Hotdog Combo to disconnect from this simulation.\n\nBeware the Receipt Checkers. They are Agents of the system.\n\nI am your Operator. I will guide you, but you must fight.\n\nYou wake up on a pallet of 96-roll toilet paper in Aisle 1. The fluorescent lights hum violently. A Free Sample cart lies abandoned to your left. Shadows move at the end of the aisle.\n\nWHAT DO YOU DO?";
             
             chatHistory.push({
                 role: "model",
-                parts: [{ text: "Wake up, Andrew Holcomb... The Warehouse has you... You must find the $1.50 hotdog to stay alive. Follow the Kirkland signs, Andrew." }]
+                parts: [{ text: intro }]
             });
+
+            await typeText(intro);
 
             inputArea.style.display = 'flex';
             cmdInput.focus();
+            
+            // Keep input focused
+            document.body.addEventListener('click', () => {
+                if (inputArea.style.display !== 'none') cmdInput.focus();
+            });
         }
 
         cmdInput.addEventListener('keydown', async (e) => {
@@ -190,23 +344,26 @@
                 cmdInput.disabled = true;
 
                 const userLine = document.createElement('div');
-                userLine.className = 'line';
-                userLine.textContent = `> ${userText}`;
+                userLine.className = 'line user-input';
+                userLine.textContent = `ADMIN_CMD > ${userText}`;
                 outputDiv.appendChild(userLine);
                 scrollToBottom();
 
                 chatHistory.push({ role: "user", parts: [{ text: userText }] });
 
-                const thinkingLine = document.createElement('div');
-                thinkingLine.className = 'line';
-                thinkingLine.textContent = "Scanning inventory database...";
-                outputDiv.appendChild(thinkingLine);
-                scrollToBottom();
+                // Add visual flair while waiting
+                await simulateProcessing();
 
                 const responseText = await fetchGeminiResponse(chatHistory);
-                outputDiv.removeChild(thinkingLine);
 
                 chatHistory.push({ role: "model", parts: [{ text: responseText }] });
+                
+                // Add a divider
+                const divider = document.createElement('div');
+                divider.className = 'line system-msg';
+                divider.textContent = "--------------------------------------------------";
+                outputDiv.appendChild(divider);
+
                 await typeText(responseText);
 
                 cmdInput.disabled = false;
@@ -215,17 +372,40 @@
         });
 
         async function fetchGeminiResponse(history) {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${USER_API_KEY}`;
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: history, systemInstruction: SYSTEM_INSTRUCTION })
-                });
-                const data = await response.json();
-                return data.candidates[0].content.parts[0].text;
-            } catch (error) {
-                return "Connection lost. The receipt checkers found this terminal. Disconnecting...";
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            const payload = { 
+                contents: history, 
+                systemInstruction: SYSTEM_INSTRUCTION,
+                generationConfig: {
+                    temperature: 0.9 // Slightly higher creativity for an adventure game
+                }
+            };
+
+            for (let attempt = 0; attempt <= 5; attempt++) {
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await response.json();
+                    
+                    if(data.error) {
+                        throw new Error(data.error.message);
+                    }
+                    
+                    if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
+                        return data.candidates[0].content.parts[0].text;
+                    } else {
+                        throw new Error("Unexpected API response structure");
+                    }
+                } catch (error) {
+                    if (attempt === 5) {
+                        return `CRITICAL ERROR: ${error.message}. The Receipt Checkers are jamming the signal.`;
+                    }
+                    // Wait before retrying (Exponential backoff)
+                    await sleep(delays[attempt]);
+                }
             }
         }
     </script>
