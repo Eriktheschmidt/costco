@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Costco Mainframe</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            color: #00FF41; /* Classic Matrix Green */
+            font-family: "Courier New", Courier, monospace;
+            font-size: 18px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Subtle glow effect for the text */
+        * {
+            text-shadow: 0 0 4px rgba(0, 255, 65, 0.5);
+        }
+
+        #terminal-container {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            scroll-behavior: smooth;
+        }
+
+        .line {
+            margin-bottom: 8px;
+            line-height: 1.4;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .user-input {
+            color: #00FF41;
+        }
+
+        .trinity-reply {
+            color: #00FF41;
+        }
+
+        #input-area {
+            display: none; /* Hidden during intro */
+            padding: 20px;
+            background-color: #000;
+            align-items: center;
+        }
+
+        #prompt {
+            margin-right: 10px;
+            user-select: none;
+        }
+
+        #cmd-input {
+            background: transparent;
+            border: none;
+            color: #00FF41;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 18px;
+            flex-grow: 1;
+            outline: none;
+            caret-color: transparent; /* We'll use a custom block cursor if desired, or let native handle it */
+        }
+
+        /* Blinking block cursor simulation */
+        #cmd-input:focus {
+            caret-color: #00FF41;
+        }
+
+        /* Hide scrollbar for cleaner look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #000;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #003300;
+        }
+
+        @media (max-width: 600px) {
+            body { font-size: 16px; }
+            #cmd-input { font-size: 16px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="terminal-container">
+        <div id="output"></div>
+    </div>
+    
+    <div id="input-area">
+        <span id="prompt">></span>
+        <input type="text" id="cmd-input" autocomplete="off" spellcheck="false" autofocus>
+    </div>
+
+    <script>
+        // API Configuration
+        const apiKey = ""; // The execution environment provides the key at runtime
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        
+        // System prompt to force Gemini into character
+        const SYSTEM_INSTRUCTION = {
+            parts: [{
+                text: "You are a mysterious insider communicating with Andrew Holcomb through a hacked Costco inventory terminal. Andrew doesn't realize he is trapped inside an infinite, purgatory-like Costco warehouse. Your goal is to urgently guide him to the Food Court to purchase a $1.50 hotdog combo, which is the only way he can stay alive. Keep your answers brief, cryptic, deadpan, and entirely in character. Treat this with the utmost seriousness. Reference endless aisles, aggressive receipt checkers at the doors, oversized Kirkland Signature products, and the blinding fluorescent lights. Never break character. Do not use emojis. Act as if you are typing this live."
+            }]
+        };
+
+        // Chat history for context
+        let chatHistory = [];
+
+        // DOM Elements
+        const outputDiv = document.getElementById('output');
+        const inputArea = document.getElementById('input-area');
+        const cmdInput = document.getElementById('cmd-input');
+        const terminalContainer = document.getElementById('terminal-container');
+
+        // Typing effect settings
+        const TYPE_SPEED_MIN = 30;
+        const TYPE_SPEED_MAX = 100;
+
+        // Keep input focused when clicking anywhere (good for mobile)
+        document.body.addEventListener('click', () => {
+            if (inputArea.style.display !== 'none') {
+                cmdInput.focus();
+            }
+        });
+
+        // Utility: Sleep
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        // Utility: Scroll to bottom
+        const scrollToBottom = () => {
+            terminalContainer.scrollTop = terminalContainer.scrollHeight;
+        };
+
+        // Utility: Typewriter effect
+        async function typeText(text, isIntro = false) {
+            const lineDiv = document.createElement('div');
+            lineDiv.className = 'line trinity-reply';
+            
+            // If it's the intro, we might clear the screen first (handled in sequence)
+            outputDiv.appendChild(lineDiv);
+            
+            for (let i = 0; i < text.length; i++) {
+                lineDiv.textContent += text.charAt(i);
+                scrollToBottom();
+                
+                // Randomize typing speed slightly for realism
+                const delay = Math.random() * (TYPE_SPEED_MAX - TYPE_SPEED_MIN) + TYPE_SPEED_MIN;
+                await sleep(delay);
+            }
+            return lineDiv;
+        }
+
+        // The iconic opening sequence
+        async function runIntroSequence() {
+            await sleep(2000); // Initial pause
+            
+            await typeText("Wake up, Andrew Holcomb...");
+            await sleep(3000);
+            outputDiv.innerHTML = ''; // Clear screen
+            
+            await typeText("The Warehouse has you...");
+            await sleep(3000);
+            outputDiv.innerHTML = '';
+            
+            await typeText("You must find the $1.50 hotdog to stay alive.");
+            await sleep(3000);
+            outputDiv.innerHTML = '';
+            
+            await typeText("Follow the Kirkland signs, Andrew.");
+            await sleep(1500);
+            
+            // Add initial greeting to chat history for context
+            chatHistory.push({
+                role: "model",
+                parts: [{ text: "Wake up, Andrew Holcomb... The Warehouse has you... You must find the $1.50 hotdog to stay alive. Follow the Kirkland signs, Andrew." }]
+            });
+
+            // Reveal input area
+            inputArea.style.display = 'flex';
+            cmdInput.focus();
+        }
+
+        // Handle user submission
+        cmdInput.addEventListener('keydown', async (e) => {
+            if (e.key === 'Enter' && cmdInput.value.trim() !== '') {
+                const userText = cmdInput.value.trim();
+                cmdInput.value = '';
+                cmdInput.disabled = true; // Prevent typing while waiting
+
+                // Echo user input to screen
+                const userLine = document.createElement('div');
+                userLine.className = 'line user-input';
+                userLine.textContent = `> ${userText}`;
+                outputDiv.appendChild(userLine);
+                scrollToBottom();
+
+                // Add to history
+                chatHistory.push({
+                    role: "user",
+                    parts: [{ text: userText }]
+                });
+
+                // Show processing indicator
+                const thinkingLine = document.createElement('div');
+                thinkingLine.className = 'line';
+                thinkingLine.textContent = "Scanning inventory database...";
+                outputDiv.appendChild(thinkingLine);
+                scrollToBottom();
+
+                // Fetch AI response
+                const responseText = await fetchGeminiResponse(chatHistory);
+                
+                // Remove processing indicator
+                outputDiv.removeChild(thinkingLine);
+
+                // Add to history
+                chatHistory.push({
+                    role: "model",
+                    parts: [{ text: responseText }]
+                });
+
+                // Type out the response
+                await typeText(responseText);
+
+                cmdInput.disabled = false;
+                cmdInput.focus();
+            }
+        });
+
+        // API Call with Exponential Backoff
+        async function fetchGeminiResponse(history) {
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            const payload = {
+                contents: history,
+                systemInstruction: SYSTEM_INSTRUCTION
+            };
+
+            for (let attempt = 0; attempt <= 5; attempt++) {
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
+                        return data.candidates[0].content.parts[0].text;
+                    } else {
+                        throw new Error("Unexpected API response structure");
+                    }
+
+                } catch (error) {
+                    if (attempt === 5) {
+                        return "Connection lost. The receipt checkers found this terminal. Disconnecting...";
+                    }
+                    // Wait before retrying
+                    await sleep(delays[attempt]);
+                }
+            }
+        }
+
+        // Start the sequence when the page loads
+        window.onload = runIntroSequence;
+
+    </script>
+</body>
+</html>
