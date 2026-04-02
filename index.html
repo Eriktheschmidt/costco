@@ -149,6 +149,59 @@
             text-shadow: 0 0 5px #fff;
         }
 
+        /* Login Screen */
+        #auth-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            text-align: center;
+            padding: 20px;
+        }
+
+        #auth-box {
+            border: 2px solid var(--matrix-green);
+            padding: 40px;
+            background: rgba(0, 20, 0, 0.8);
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
+        }
+
+        #auth-overlay input {
+            background: #000;
+            border: 1px solid var(--matrix-green);
+            color: var(--matrix-green);
+            padding: 12px;
+            width: 100%;
+            max-width: 300px;
+            margin-top: 20px;
+            font-family: inherit;
+            font-size: 16px;
+            outline: none;
+            text-align: center;
+        }
+
+        #auth-overlay button {
+            margin-top: 20px;
+            background: var(--matrix-green);
+            color: #000;
+            border: none;
+            padding: 12px 25px;
+            font-family: inherit;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        #auth-overlay button:hover {
+            background: #fff;
+            box-shadow: 0 0 15px #fff;
+        }
+
         /* Scrollbar */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: rgba(0,0,0,0.5); border-left: 1px solid var(--matrix-dark); }
@@ -172,6 +225,23 @@
 
     <!-- Matrix Digital Rain Background -->
     <canvas id="matrix-canvas"></canvas>
+
+    <!-- Login Screen -->
+    <div id="auth-overlay">
+        <div id="auth-box">
+            <div style="font-size: 24px; margin-bottom: 10px; font-weight: bold; text-shadow: 0 0 10px var(--matrix-green);">COSTCO MAINFRAME v4.2</div>
+            <div class="line" style="color: #ff3333;">WARNING: PURGATORY DETECTED</div>
+            <div style="font-size: 12px; margin-top: 20px; color: #88ff88;">
+                Establish secure uplink via Gemini API Key:
+            </div>
+            <input type="password" id="api-key-input" placeholder="ENTER ACCESS KEY">
+            <br>
+            <button onclick="startApp()">INITIALIZE LINK</button>
+            <div style="margin-top: 30px; font-size: 12px;">
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: var(--matrix-dark); text-decoration: none;">[ Acquire Key ]</a>
+            </div>
+        </div>
+    </div>
 
     <!-- Main Application -->
     <div id="app-wrapper" style="display: none;">
@@ -250,8 +320,8 @@
 
 
         /* --- APPLICATION LOGIC --- */
-        const apiKey = "";
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        let USER_API_KEY = "";
+        let API_URL = "";
         
         // Massive upgrade to the prompt to make it a true interactive game
         const SYSTEM_INSTRUCTION = {
@@ -308,11 +378,20 @@
             outputDiv.removeChild(hexLine);
         }
 
-        window.onload = () => {
+        function startApp() {
+            const val = document.getElementById('api-key-input').value;
+            if (!val) return;
+            USER_API_KEY = val;
+            // Use standard flash model for external users
+            API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${USER_API_KEY}`;
+            
+            document.getElementById('auth-overlay').style.display = 'none';
             appWrapper.style.display = 'flex';
             runIntroSequence();
-        };
+        }
 
+        // Removed window.onload so it waits for the user to click INITIALIZE LINK
+        
         async function runIntroSequence() {
             await sleep(1000);
             await typeText("INITIALIZING WAREHOUSE PROTOCOL...", "line system-msg");
