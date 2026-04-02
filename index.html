@@ -11,7 +11,7 @@
             width: 100%;
             height: 100%;
             background-color: #000;
-            color: #00FF41; /* Classic Matrix Green */
+            color: #00FF41;
             font-family: "Courier New", Courier, monospace;
             font-size: 18px;
             overflow: hidden;
@@ -19,10 +19,7 @@
             flex-direction: column;
         }
 
-        /* Subtle glow effect for the text */
-        * {
-            text-shadow: 0 0 4px rgba(0, 255, 65, 0.5);
-        }
+        * { text-shadow: 0 0 4px rgba(0, 255, 65, 0.5); }
 
         #terminal-container {
             flex-grow: 1;
@@ -40,25 +37,15 @@
             white-space: pre-wrap;
         }
 
-        .user-input {
-            color: #00FF41;
-        }
-
-        .trinity-reply {
-            color: #00FF41;
-        }
-
         #input-area {
-            display: none; /* Hidden during intro */
+            display: none;
             padding: 20px;
             background-color: #000;
             align-items: center;
+            border-top: 1px solid #003300;
         }
 
-        #prompt {
-            margin-right: 10px;
-            user-select: none;
-        }
+        #prompt { margin-right: 10px; user-select: none; }
 
         #cmd-input {
             background: transparent;
@@ -68,23 +55,43 @@
             font-size: 18px;
             flex-grow: 1;
             outline: none;
-            caret-color: transparent; /* We'll use a custom block cursor if desired, or let native handle it */
         }
 
-        /* Blinking block cursor simulation */
-        #cmd-input:focus {
-            caret-color: #00FF41;
-        }
-
-        /* Hide scrollbar for cleaner look */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
+        /* Login Screen Styles */
+        #auth-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
             background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            text-align: center;
+            padding: 20px;
         }
-        ::-webkit-scrollbar-thumb {
-            background: #003300;
+
+        #auth-overlay input {
+            background: #000;
+            border: 1px solid #00FF41;
+            color: #00FF41;
+            padding: 10px;
+            width: 80%;
+            max-width: 400px;
+            margin-top: 20px;
+            font-family: inherit;
+            outline: none;
+        }
+
+        #auth-overlay button {
+            margin-top: 20px;
+            background: #00FF41;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
         }
 
         @media (max-width: 600px) {
@@ -95,144 +102,111 @@
 </head>
 <body>
 
+    <div id="auth-overlay">
+        <div class="line">WAREHOUSE TERMINAL v4.2.1</div>
+        <div class="line">UNAUTHORIZED ACCESS PROHIBITED</div>
+        <div style="font-size: 12px; margin-top: 10px; color: #008822;">
+            (Please enter your Gemini API Key to establish a secure link)
+        </div>
+        <input type="password" id="api-key-input" placeholder="ACCESS_KEY_REQUIRED">
+        <button onclick="startApp()">INITIALIZE LINK</button>
+        <div style="margin-top: 20px; font-size: 10px;">
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #00FF41;">Get a free key here</a>
+        </div>
+    </div>
+
     <div id="terminal-container">
         <div id="output"></div>
     </div>
     
     <div id="input-area">
         <span id="prompt">></span>
-        <input type="text" id="cmd-input" autocomplete="off" spellcheck="false" autofocus>
+        <input type="text" id="cmd-input" autocomplete="off" spellcheck="false">
     </div>
 
     <script>
-        // API Configuration
-        const apiKey = ""; // The execution environment provides the key at runtime
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        let USER_API_KEY = "";
         
-        // System prompt to force Gemini into character
         const SYSTEM_INSTRUCTION = {
             parts: [{
-                text: "You are a mysterious insider communicating with Andrew Holcomb through a hacked Costco inventory terminal. Andrew doesn't realize he is trapped inside an infinite, purgatory-like Costco warehouse. Your goal is to urgently guide him to the Food Court to purchase a $1.50 hotdog combo, which is the only way he can stay alive. Keep your answers brief, cryptic, deadpan, and entirely in character. Treat this with the utmost seriousness. Reference endless aisles, aggressive receipt checkers at the doors, oversized Kirkland Signature products, and the blinding fluorescent lights. Never break character. Do not use emojis. Act as if you are typing this live."
+                text: "You are a mysterious insider communicating with Andrew Holcomb through a hacked Costco inventory terminal. Andrew doesn't realize he is trapped inside an infinite, purgatory-like Costco warehouse. Your goal is to urgently guide him to the Food Court to purchase a $1.50 hotdog combo, which is the only way he can stay alive. Keep your answers brief, cryptic, deadpan, and entirely in character. Treat this with the utmost seriousness. Reference endless aisles, aggressive receipt checkers, oversized Kirkland products, and the blinding fluorescent lights. Never break character. Do not use emojis."
             }]
         };
 
-        // Chat history for context
         let chatHistory = [];
-
-        // DOM Elements
         const outputDiv = document.getElementById('output');
         const inputArea = document.getElementById('input-area');
         const cmdInput = document.getElementById('cmd-input');
         const terminalContainer = document.getElementById('terminal-container');
 
-        // Typing effect settings
-        const TYPE_SPEED_MIN = 30;
-        const TYPE_SPEED_MAX = 100;
-
-        // Keep input focused when clicking anywhere (good for mobile)
-        document.body.addEventListener('click', () => {
-            if (inputArea.style.display !== 'none') {
-                cmdInput.focus();
-            }
-        });
-
-        // Utility: Sleep
         const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        const scrollToBottom = () => { terminalContainer.scrollTop = terminalContainer.scrollHeight; };
 
-        // Utility: Scroll to bottom
-        const scrollToBottom = () => {
-            terminalContainer.scrollTop = terminalContainer.scrollHeight;
-        };
-
-        // Utility: Typewriter effect
-        async function typeText(text, isIntro = false) {
+        async function typeText(text) {
             const lineDiv = document.createElement('div');
-            lineDiv.className = 'line trinity-reply';
-            
-            // If it's the intro, we might clear the screen first (handled in sequence)
+            lineDiv.className = 'line';
             outputDiv.appendChild(lineDiv);
-            
             for (let i = 0; i < text.length; i++) {
                 lineDiv.textContent += text.charAt(i);
                 scrollToBottom();
-                
-                // Randomize typing speed slightly for realism
-                const delay = Math.random() * (TYPE_SPEED_MAX - TYPE_SPEED_MIN) + TYPE_SPEED_MIN;
-                await sleep(delay);
+                await sleep(Math.random() * 50 + 20);
             }
-            return lineDiv;
         }
 
-        // The iconic opening sequence
+        function startApp() {
+            const val = document.getElementById('api-key-input').value;
+            if (!val) return;
+            USER_API_KEY = val;
+            document.getElementById('auth-overlay').style.display = 'none';
+            runIntroSequence();
+        }
+
         async function runIntroSequence() {
-            await sleep(2000); // Initial pause
-            
+            await sleep(1000);
             await typeText("Wake up, Andrew Holcomb...");
-            await sleep(3000);
-            outputDiv.innerHTML = ''; // Clear screen
-            
+            await sleep(2500);
+            outputDiv.innerHTML = '';
             await typeText("The Warehouse has you...");
-            await sleep(3000);
+            await sleep(2500);
             outputDiv.innerHTML = '';
-            
             await typeText("You must find the $1.50 hotdog to stay alive.");
-            await sleep(3000);
+            await sleep(2500);
             outputDiv.innerHTML = '';
-            
             await typeText("Follow the Kirkland signs, Andrew.");
-            await sleep(1500);
             
-            // Add initial greeting to chat history for context
             chatHistory.push({
                 role: "model",
                 parts: [{ text: "Wake up, Andrew Holcomb... The Warehouse has you... You must find the $1.50 hotdog to stay alive. Follow the Kirkland signs, Andrew." }]
             });
 
-            // Reveal input area
             inputArea.style.display = 'flex';
             cmdInput.focus();
         }
 
-        // Handle user submission
         cmdInput.addEventListener('keydown', async (e) => {
             if (e.key === 'Enter' && cmdInput.value.trim() !== '') {
                 const userText = cmdInput.value.trim();
                 cmdInput.value = '';
-                cmdInput.disabled = true; // Prevent typing while waiting
+                cmdInput.disabled = true;
 
-                // Echo user input to screen
                 const userLine = document.createElement('div');
-                userLine.className = 'line user-input';
+                userLine.className = 'line';
                 userLine.textContent = `> ${userText}`;
                 outputDiv.appendChild(userLine);
                 scrollToBottom();
 
-                // Add to history
-                chatHistory.push({
-                    role: "user",
-                    parts: [{ text: userText }]
-                });
+                chatHistory.push({ role: "user", parts: [{ text: userText }] });
 
-                // Show processing indicator
                 const thinkingLine = document.createElement('div');
                 thinkingLine.className = 'line';
                 thinkingLine.textContent = "Scanning inventory database...";
                 outputDiv.appendChild(thinkingLine);
                 scrollToBottom();
 
-                // Fetch AI response
                 const responseText = await fetchGeminiResponse(chatHistory);
-                
-                // Remove processing indicator
                 outputDiv.removeChild(thinkingLine);
 
-                // Add to history
-                chatHistory.push({
-                    role: "model",
-                    parts: [{ text: responseText }]
-                });
-
-                // Type out the response
+                chatHistory.push({ role: "model", parts: [{ text: responseText }] });
                 await typeText(responseText);
 
                 cmdInput.disabled = false;
@@ -240,49 +214,20 @@
             }
         });
 
-        // API Call with Exponential Backoff
         async function fetchGeminiResponse(history) {
-            const delays = [1000, 2000, 4000, 8000, 16000];
-            const payload = {
-                contents: history,
-                systemInstruction: SYSTEM_INSTRUCTION
-            };
-
-            for (let attempt = 0; attempt <= 5; attempt++) {
-                try {
-                    const response = await fetch(API_URL, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-
-                    const data = await response.json();
-                    
-                    if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
-                        return data.candidates[0].content.parts[0].text;
-                    } else {
-                        throw new Error("Unexpected API response structure");
-                    }
-
-                } catch (error) {
-                    if (attempt === 5) {
-                        return "Connection lost. The receipt checkers found this terminal. Disconnecting...";
-                    }
-                    // Wait before retrying
-                    await sleep(delays[attempt]);
-                }
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${USER_API_KEY}`;
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: history, systemInstruction: SYSTEM_INSTRUCTION })
+                });
+                const data = await response.json();
+                return data.candidates[0].content.parts[0].text;
+            } catch (error) {
+                return "Connection lost. The receipt checkers found this terminal. Disconnecting...";
             }
         }
-
-        // Start the sequence when the page loads
-        window.onload = runIntroSequence;
-
     </script>
 </body>
 </html>
